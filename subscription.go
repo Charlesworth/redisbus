@@ -1,4 +1,4 @@
-package redisBus
+package redisbus
 
 import (
 	"math/rand"

@@ -1,4 +1,4 @@
-package redisBus
+package redisbus
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -27,7 +27,7 @@ func TestRedisBus(t *testing.T) {
 
 		for _, sub := range subs {
 			msg := <-sub.DataChan()
-			assert.Equal(t, testString, msg, "Published message and recieved message are not equal")
+			assert.Equal(t, testString, msg, "Published message and received message are not equal")
 		}
 	}
 
