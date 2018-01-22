@@ -13,7 +13,7 @@ type RedisBus struct {
 	subConn  redis.PubSubConn
 	pubConn  redis.Conn
 	mutex    *sync.RWMutex
-	subs     map[string]map[int]*Subscription
+	subs     map[string]map[int]*subscription
 	StopChan chan struct{}
 }
 
@@ -34,7 +34,7 @@ func New(redisURL string) (*RedisBus, error) {
 		subConn:  subConn,
 		pubConn:  pubConn,
 		mutex:    &sync.RWMutex{},
-		subs:     make(map[string]map[int]*Subscription),
+		subs:     make(map[string]map[int]*subscription),
 		StopChan: make(chan struct{}),
 	}
 
@@ -55,7 +55,7 @@ func (rb *RedisBus) start() {
 			rb.mutex.RLock()
 
 			for _, sub := range rb.subs[v.Channel] {
-				sub.DataChan <- v.Data
+				sub.dataChan <- v.Data
 			}
 
 			rb.mutex.RUnlock()
@@ -86,8 +86,8 @@ func (rb *RedisBus) Close() error {
 
 	for channel, subMap := range rb.subs {
 		for subID, sub := range subMap {
-			close(sub.ExitChan)
-			close(sub.DataChan)
+			close(sub.exitChan)
+			close(sub.dataChan)
 			delete(subMap, subID)
 		}
 		delete(rb.subs, channel)
@@ -96,7 +96,7 @@ func (rb *RedisBus) Close() error {
 	return nil
 }
 
-func (rb *RedisBus) Subscribe(channel string) (*Subscription, error) {
+func (rb *RedisBus) Subscribe(channel string) (Subscription, error) {
 	if rb.cancelled() {
 		return nil, errors.New("RedisBus instance closed")
 	}
@@ -110,7 +110,7 @@ func (rb *RedisBus) Subscribe(channel string) (*Subscription, error) {
 		if err != nil {
 			return nil, err
 		}
-		rb.subs[channel] = make(map[int]*Subscription)
+		rb.subs[channel] = make(map[int]*subscription)
 	}
 
 	sub := rb.newSubscription(channel)
@@ -129,7 +129,7 @@ func (rb *RedisBus) Publish(channel string, data []byte) error {
 	return err
 }
 
-func (rb *RedisBus) unsubscribe(sub *Subscription) {
+func (rb *RedisBus) unsubscribe(sub *subscription) {
 	if rb.cancelled() {
 		return
 	}

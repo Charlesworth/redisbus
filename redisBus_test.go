@@ -12,7 +12,7 @@ func TestRedisBus(t *testing.T) {
 
 	channelName := "testchannel"
 
-	subs := []*Subscription{}
+	subs := []Subscription{}
 	for i := 0; i < 3; i++ {
 		sub, err := bus.Subscribe(channelName)
 		assert.NoError(t, err, "Subscription error")
@@ -25,7 +25,7 @@ func TestRedisBus(t *testing.T) {
 		assert.NoError(t, err, "Publish error")
 
 		for _, sub := range subs {
-			msg := <-sub.DataChan
+			msg := <-sub.DataChan()
 			assert.Equal(t, testString, msg, "Published message and recieved message are not equal")
 		}
 	}
