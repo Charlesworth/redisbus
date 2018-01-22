@@ -29,26 +29,27 @@ type redisBus struct {
 	subConn  redis.PubSubConn
 	pubConn  redis.Conn
 	mutex    *sync.RWMutex
-	subs     map[string]map[int]*subscription
 	stopChan chan error
 	logger   *log.Logger
+	// map[channel]map[subscription.id]*subscription
+	subs map[string]map[int]*subscription
 }
 
 // New initialises and starts a redisbus Bus instance
-func New(redisURL string) (Bus, error) {
-	return new(redisURL)
+func New(redisURL string, dialTimeout time.Duration) (Bus, error) {
+	return new(redisURL, dialTimeout)
 }
 
 // NewWithLogger initialises and starts a redisbus Bus instance
 // with a logger
-func NewWithLogger(redisURL string, logger *log.Logger) (Bus, error) {
-	bus, err := new(redisURL)
+func NewWithLogger(redisURL string, dialTimeout time.Duration, logger *log.Logger) (Bus, error) {
+	bus, err := new(redisURL, dialTimeout)
 	bus.logger = logger
 	return bus, err
 }
 
-func new(redisURL string) (*redisBus, error) {
-	conn, err := redis.DialTimeout("tcp", redisURL, time.Second, time.Second, time.Second)
+func new(redisURL string, dialTimeout time.Duration) (*redisBus, error) {
+	conn, err := redis.DialTimeout("tcp", redisURL, dialTimeout, dialTimeout, dialTimeout)
 	if err != nil {
 		return nil, err
 	}

@@ -3,11 +3,12 @@ package redisBus
 import (
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestRedisBus(t *testing.T) {
 
-	bus, err := New(":6379")
+	bus, err := New(":6379", time.Second)
 	assert.NoError(t, err, "Cannot connect to redis on :6379")
 
 	channelName := "testchannel"
@@ -30,7 +31,7 @@ func TestRedisBus(t *testing.T) {
 		}
 	}
 
-	// err = bus.Close()
-	// assert.NoError(t, err, "Close error")
 	bus.Close()
+	assert.NoError(t, <-bus.ExitChan(), "Error after bus.Close()")
+
 }
