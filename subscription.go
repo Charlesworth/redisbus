@@ -16,16 +16,16 @@ type Subscription interface {
 type subscription struct {
 	dataChan chan []byte
 	exitChan chan struct{}
-	bus      *RedisBus
+	bus      *redisBus
 	channel  string
 	id       int
 }
 
-func (rb *RedisBus) newSubscription(channel string) *subscription {
+func newSubscription(channel string, bus *redisBus) *subscription {
 	return &subscription{
 		dataChan: make(chan []byte, 1),
 		exitChan: make(chan struct{}),
-		bus:      rb,
+		bus:      bus,
 		channel:  channel,
 		id:       rand.Int(),
 	}
