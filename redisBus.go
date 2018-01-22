@@ -9,6 +9,11 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
+const (
+	SubscriptionReadError = "SubscriptionReadError"
+	UnsubscribeError      = "UnsubscribeError"
+)
+
 // Bus contains the connection to Redis and supplies the Publish
 // and Subscribe methods to access the PubSub features. ExitChan
 // will be closed when the subscription has ended. Call Close to
@@ -16,17 +21,16 @@ import (
 type Bus interface {
 	Publish(channel string, data []byte) error
 	Subscribe(channel string) (Subscription, error)
-	Close() error
-	ExitChan() <-chan struct{}
+	ExitChan() <-chan error
+	Close()
 }
 
 type redisBus struct {
-	subConn redis.PubSubConn
-	pubConn redis.Conn
-	mutex   *sync.RWMutex
-	subs    map[string]map[int]*subscription
-	// TODO maybe stopchan should return an error
-	stopChan chan struct{}
+	subConn  redis.PubSubConn
+	pubConn  redis.Conn
+	mutex    *sync.RWMutex
+	subs     map[string]map[int]*subscription
+	stopChan chan error
 	logger   *log.Logger
 }
 
@@ -61,7 +65,7 @@ func new(redisURL string) (*redisBus, error) {
 		pubConn:  pubConn,
 		mutex:    &sync.RWMutex{},
 		subs:     make(map[string]map[int]*subscription),
-		stopChan: make(chan struct{}),
+		stopChan: make(chan error, 1),
 	}
 
 	go rb.start()
@@ -69,11 +73,16 @@ func new(redisURL string) (*redisBus, error) {
 	return rb, nil
 }
 
-func (rb *redisBus) ExitChan() <-chan struct{} {
+func (rb *redisBus) ExitChan() <-chan error {
 	return rb.stopChan
 }
 
-func (rb *redisBus) Close() error {
+func (rb *redisBus) Close() {
+	rb.close(nil)
+}
+
+func (rb *redisBus) close(closingErr error) error {
+	rb.stopChan <- closingErr
 	close(rb.stopChan)
 
 	err := rb.pubConn.Close()
@@ -98,7 +107,7 @@ func (rb *redisBus) Close() error {
 		delete(rb.subs, channel)
 	}
 
-	return nil
+	return err
 }
 
 func (rb *redisBus) Subscribe(channel string) (Subscription, error) {
@@ -147,7 +156,7 @@ func (rb *redisBus) unsubscribe(sub *subscription) {
 	if len(rb.subs[sub.channel]) == 0 {
 		err := rb.subConn.Unsubscribe(sub.channel)
 		if err != nil {
-			rb.Close()
+			rb.close(errors.New(UnsubscribeError))
 		}
 	}
 }
@@ -187,7 +196,7 @@ func (rb *redisBus) start() {
 			if rb.logger != nil {
 				rb.logger.Println("error:", v.Error())
 			}
-			rb.Close()
+			rb.close(errors.New(SubscriptionReadError))
 		}
 	}
 }
